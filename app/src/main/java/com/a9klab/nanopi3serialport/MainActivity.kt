@@ -25,6 +25,7 @@ import android.R.id.edit
 import android.content.Context
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.view.MotionEvent
 
 
 class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
@@ -56,6 +57,7 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
             devfd = -1
             Toast.makeText(this, "串口未打开", Toast.LENGTH_LONG).show()
             btn_conn.visibility = View.VISIBLE
+            btn_fire.isEnabled = false
             Log.d(TAG, "Fail to open " + devName + "!")
         }
         btn_conn.setOnClickListener {
@@ -63,6 +65,7 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
             if (devfd >= 0) {
                 //Log.d(TAG, "Open Success")
                 SerialPort.Start()
+                btn_fire.isEnabled = true
                 btn_conn.visibility = View.GONE
             } else {
                 devfd = -1
@@ -70,45 +73,30 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
                 Log.d(TAG, "Fail to open " + devName + "!")
             }
         }
-//        t_left_freq.setOnClickListener {
-//            t_left_freq.setText("")
-//        }
-//        t_right_freq.setOnClickListener {
-//            t_right_freq.setText("")
-//        }
         t_left_freq.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 t_left_freq.setText("")
             } else {
-                t_left_freq.setText("3.0")
+                if (mInputMethodManager!!.isActive) {
+                    mInputMethodManager!!.hideSoftInputFromWindow(t_right_freq.windowToken, 0)// 隐藏输入法
+                }
             }
         }
-//        t_left_freq.addTextChangedListener(object : TextWatcher {
-//            override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {}
-//            override fun beforeTextChanged(s: CharSequence, start: Int, count: Int,
-//                                           after: Int) {
-//            }
-//
-//            override fun afterTextChanged(s: Editable) {
-//                t_left_freq.setFocusable(false);//设置输入框不可聚焦，即失去焦点和光标
-//            }
-//        })
-//        t_right_freq.addTextChangedListener(object : TextWatcher {
-//            override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
-//            }
-//
-//            override fun beforeTextChanged(s: CharSequence, start: Int, count: Int,
-//                                           after: Int) {
-//            }
-//
-//            override fun afterTextChanged(s: Editable) {
-//                t_right_freq.setFocusable(false);//设置输入框不可聚焦，即失去焦点和光标
-//            }
-//        })
-//        btn_send.setOnClickListener {
-//            val b = byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0x0d.toByte(), 0x0a.toByte())
-//            txv_send.text = SerialPort.SendEx(b).toString()
-//        }
+        t_right_freq.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                t_right_freq.setText("")
+            } else {
+                if (mInputMethodManager!!.isActive) {
+                    mInputMethodManager!!.hideSoftInputFromWindow(t_right_freq.windowToken, 0)// 隐藏输入法
+                }
+            }
+        }
+        ll.setOnTouchListener { view, motionEvent ->
+            ll.setFocusable(true)
+            ll.setFocusableInTouchMode(true)
+            ll.requestFocus()
+            false
+        }
     }
 
     /**
@@ -172,14 +160,16 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
         when (v.id) {
             R.id.t_left_freq//输入框
             -> {
-                t_left_freq.setFocusable(false)//设置输入框不可聚焦，即失去焦点和光标
+                t_left_freq.clearFocus()
+                ll.requestFocus()
                 if (mInputMethodManager!!.isActive) {
                     mInputMethodManager!!.hideSoftInputFromWindow(t_left_freq.windowToken, 0)// 隐藏输入法
                 }
             }
             R.id.t_right_freq//确定按钮
             -> {
-                t_right_freq.setFocusable(false)//设置输入框不可聚焦，即失去焦点和光标
+                t_right_freq.clearFocus()
+                ll.requestFocus()
                 if (mInputMethodManager!!.isActive) {
                     mInputMethodManager!!.hideSoftInputFromWindow(t_right_freq.windowToken, 0)// 隐藏输入法
                 }

@@ -7,6 +7,7 @@
     tools:context="com.a9klab.nanopi3serialport.MainActivity">
 
     <LinearLayout
+        android:id="@+id/ll"
         android:layout_width="0dp"
         android:layout_height="278dp"
         android:orientation="vertical"
@@ -33,7 +34,7 @@
             <RadioButton
                 android:id="@+id/radioButton_left"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="50dp"
                 android:layout_weight="1"
                 android:checked="true"
                 android:text="左" />
@@ -51,7 +52,7 @@
             <RadioButton
                 android:id="@+id/radioButton_right"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="50dp"
                 android:layout_weight="1"
                 android:text="右" />
 
@@ -73,11 +74,14 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:ems="10"
+                android:focusable="auto"
+                android:focusedByDefault="false"
                 android:gravity="center"
                 android:imeOptions="actionDone"
                 android:inputType="numberDecimal"
                 android:text="4.000"
-                android:textAlignment="center" />
+                android:textAlignment="center"
+                tools:focusableInTouchMode="true" />
 
             <TextView
                 android:layout_width="150dp"
@@ -91,11 +95,14 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:ems="10"
+                android:focusable="auto"
+                android:focusedByDefault="true"
                 android:gravity="center"
                 android:imeOptions="actionDone"
                 android:inputType="numberDecimal"
                 android:text="8.000"
-                android:textAlignment="center" />
+                android:textAlignment="center"
+                tools:focusableInTouchMode="true" />
 
             <TextView
                 android:layout_width="150dp"

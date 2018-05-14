@@ -205,7 +205,7 @@ public class StringUtils {
 
     private static String data10 = "0123456789";
 
-    private static String data16 = "0123456789abcdef";
+    private static String data16 = "0123456789ABCDEF";
 
     /**
      * 0x12变换为“12”

@@ -17,9 +17,9 @@
 //设备地址
 #define TTY_DEVICE_PATH   "/dev/ttySAC3"
 
-#define PROTOCOL_HEAD_SEND 0xaa
-#define PROTOCOL_FOOT 0xda
-#define PROTOCOL_HEAD_RECEIVE  0xbb
+#define PROTOCOL_HEAD_SEND 0xcc
+#define PROTOCOL_FOOT 0xcd
+#define PROTOCOL_HEAD_RECEIVE  0xdd
 
 
 #define LOGI(fmt, args...) __android_log_print(ANDROID_LOG_INFO,  TAG, fmt, ##args)
@@ -108,22 +108,31 @@ void dataProcess(unsigned char buf[], int size) {
         //头尾都接受
         if (finded_head && finded_foot) {
             //验证是否真结束
-            int len = foot_pos - head_pos;
+            int len = foot_pos - head_pos + 1;
             if (len >= 3) {
-//                if (cache[head_pos + 3] + 6 == foot_pos - head_pos) {
+                if (false) {     //调试用
+                    char str[64] = {0};
+                    for (int i = 0; i < len; i++) {
+                        char t[10] = {0};
+                        sprintf(t, "%02X ", cache[head_pos + i]);
+                        strcat(str, t);
+                    }
+                    LOGE("Recv :%s", str);
+                }
+                if (cache[head_pos + 1] + 1 == foot_pos - head_pos) {
                     //该条数据完整
                     //LOGD("callBack func");
                     callBack(cache + head_pos, len); // 数据完整 回调交由java
-//                    finded_head = false;
-//                    finded_foot = false;
-//                } else if (cache[head_pos + 3] + 6 > foot_pos - head_pos) {
-//                    //该条数据未完
-//                    finded_foot = false;
-//                } else if (cache[head_pos + 3] + 6 < foot_pos - head_pos) {
-//                    //该数据出错
-//                    finded_head = false;
-//                    finded_foot = false;
-//                }
+                    finded_head = false;
+                    finded_foot = false;
+                } else if (cache[head_pos + 1] + 1 > foot_pos - head_pos) {
+                    //该条数据未完
+                    finded_foot = false;
+                } else if (cache[head_pos + 1] + 1 < foot_pos - head_pos) {
+                    //该数据出错
+                    finded_head = false;
+                    finded_foot = false;
+                }
             } else {
                 //该数据出错
                 finded_head = false;
@@ -199,6 +208,15 @@ Java_com_a9klab_nanopi3serialport_SerialPort_SendEx(JNIEnv *env, jclass jc_, jby
     jint ret;
     if (fd_com) {
         ret = write(fd_com, data, len);
+        if (true) {
+            char str[64] = {0};
+            for (int i = 0; i < len + 4; i++) {
+                char t[10] = {0};
+                sprintf(t, "%02X ", data[i]);
+                strcat(str, t);
+            }
+            LOGE("SendEx :%s", str);
+        }
     } else {
         LOGE("Serial Port not open");
         ret = -1;
@@ -233,6 +251,15 @@ jint Java_com_a9klab_nanopi3serialport_SerialPort_Send(JNIEnv *env, jclass jc_, 
             ret = 1;
         } else {
             ret = 0;
+        }
+        if (true) {
+            char str[64] = {0};
+            for (int i = 0; i < len + 4; i++) {
+                char t[10] = {0};
+                sprintf(t, "%02X ", d[i]);
+                strcat(str, t);
+            }
+            LOGE("Send :%s", str);
         }
         free(d);
     } else {
@@ -281,7 +308,7 @@ Java_com_a9klab_nanopi3serialport_SerialPort_Start(JNIEnv *env, jobject instance
 
     thread_flag = true;
     int ret = pthread_create(&pid, NULL, &thread_fun, NULL);
-    if (ret >= 0) {
+    if (ret == 0) {
         LOGE("pthread_create %d", ret);
         return 0;
     } else {

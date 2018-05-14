@@ -26,6 +26,9 @@ import android.content.Context
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.view.MotionEvent
+import android.R.attr.data
+import android.annotation.SuppressLint
+import android.graphics.Color
 
 
 class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
@@ -40,6 +43,15 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
     private var dataBits = 8
     private var stopBits = 1
     private var devfd = -1
+
+    private var leftHandleType = 0
+    private var rightHandleType = 0
+    private var leftHandleTipType = 0
+    private var rightHandleTipType = 0
+    private var HandleSelect = 0
+
+    private var ready = 0
+    private var errorCode = 0
 
     private val gSerialPort = SerialPort(this)
     var dataProcess: DataProcess? = null
@@ -97,6 +109,21 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
             ll.requestFocus()
             false
         }
+        btn_h_conn.setOnClickListener {
+            val data = byteArrayOf((0 + 5).toByte(), 0x01.toByte(), 0x04.toByte())
+            SerialPort.Send(data)
+        }
+        btn_ready.setOnClickListener {
+            if (ready == 1) {
+                val data = byteArrayOf((1 + 5).toByte(), 0x01.toByte(), 0x02.toByte(), 0x01.toByte())
+                SerialPort.Send(data)
+            } else {
+                val data = byteArrayOf((1 + 5).toByte(), 0x01.toByte(), 0x02.toByte(), 0x02.toByte())
+                SerialPort.Send(data)
+            }
+        }
+        txt_left_handle_type.text = leftHandleType.toString() + "+" + leftHandleTipType.toString()
+        txt_right_handle_type.text = rightHandleType.toString() + "+" + rightHandleTipType.toString()
     }
 
     /**
@@ -105,11 +132,51 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
      */
     external fun stringFromJNI(): String
 
-    private val mHandler = object : Handler() {
+    private val mHandler = @SuppressLint("HandlerLeak")
+    object : Handler() {
         override fun handleMessage(msg: Message) {
             //更新UI
             when (msg.what) {
             //1 -> textView.text = "345"
+                CmdMsg.H0104_HeartBeat.ordinal -> {
+
+                }
+                CmdMsg.H0102_SetStateInfo.ordinal -> {
+                    if (ready == 0) {
+                        btn_ready.text = "待机"
+                    } else {
+                        btn_ready.text = "就绪"
+                    }
+                    txt_error_code.text = "ErrorCode:" + errorCode.toString()
+                }
+                CmdMsg.H0301_H0302_ReflashHandleInfo.ordinal -> {
+                    txt_left_handle_type.text = leftHandleType.toString() + "+" + leftHandleTipType.toString()
+                    txt_right_handle_type.text = rightHandleType.toString() + "+" + rightHandleTipType.toString()
+                    when (HandleSelect) {
+                        0 -> {
+                            txt_left_handle_type.setTextColor(Color.GRAY)
+                            txt_right_handle_type.background = null
+                            txt_right_handle_type.setTextColor(Color.GRAY)
+                            txt_right_handle_type.background = null
+                        }
+                        1 -> {
+                            txt_left_handle_type.setTextColor(Color.BLUE)
+                            txt_left_handle_type.background = getDrawable(R.color.colorAccent)
+                            txt_right_handle_type.setTextColor(Color.GRAY)
+                            txt_right_handle_type.background = null
+                        }
+                        2 -> {
+                            txt_left_handle_type.setTextColor(Color.GRAY)
+                            txt_left_handle_type.background = null
+                            txt_right_handle_type.setTextColor(Color.BLUE)
+                            txt_right_handle_type.background = getDrawable(R.color.colorAccent)
+                        }
+                    }
+                }
+                CmdMsg.H0202_TipInfoReport.ordinal -> {
+                    txt_left_handle_type.text = leftHandleType.toString() + "+" + leftHandleTipType.toString()
+                    txt_right_handle_type.text = rightHandleType.toString() + "+" + rightHandleTipType.toString()
+                }
             }
         }
     }
@@ -128,15 +195,50 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
             s = s + "-" + StringUtils.print(data[i])
         }
         Log.i("MainActivity", "$s, length= $length")
-//        var cmd=data[1].toInt()
-//        cmd=cmd.shl(8)
-//        cmd=cmd or data[2].toInt()
         val message = Message()
-        when ((data[1].toInt() shl 8) or data[2].toInt()) {
-        //when (cmd) {
+        val cmd = (data[2].toInt() shl 8) or data[3].toInt()
+        when (cmd) {
+        //TODO: 事件驱动,不能直接改写
             0x0101 -> {
-                //TODO: 事件驱动,不能直接改写
-                message.what = 1
+
+                message.what = CmdMsg.H0101_GetStateInfo.ordinal
+            }
+            0x0102 -> {
+                message.what = CmdMsg.H0102_SetStateInfo.ordinal
+                    when (data[4].toInt()) {
+                        0 -> {
+                            errorCode=0
+                            if (ready == 0) {
+                                ready = 1
+                            } else {
+                                ready = 0
+                            }
+                        }
+                        else -> {
+                            errorCode = data[4].toInt()
+                        }
+                    }
+            }
+            0x0104 -> {
+                message.what = CmdMsg.H0104_HeartBeat.ordinal
+                Log.i("_Recv_CMD", "H0104_HeartBeat")
+            }
+            0x0202 -> {
+                message.what = CmdMsg.H0202_TipInfoReport.ordinal
+                when (data[4].toInt()) {
+                    1 -> {
+                        leftHandleTipType = data[5].toInt()
+                    }
+                    2 -> {
+                        rightHandleTipType = data[5].toInt()
+                    }
+                }
+            }
+            0x0301, 0x0302 -> {
+                message.what = CmdMsg.H0301_H0302_ReflashHandleInfo.ordinal
+                leftHandleType = data[4].toInt()
+                rightHandleType = data[5].toInt()
+                HandleSelect = data[6].toInt()
             }
             else -> {
             }

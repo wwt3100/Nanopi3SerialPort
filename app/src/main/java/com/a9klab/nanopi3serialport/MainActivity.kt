@@ -48,10 +48,20 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
     private var rightHandleType = 0
     private var leftHandleTipType = 0
     private var rightHandleTipType = 0
+    private var leftHandleTipFreq = 0
+    private var rightHandleTipFreq = 0
     private var HandleSelect = 0
+
+    private var power = 1
+    private var pitch = 10
+    private var fireMode = 0
+    private var length = 25
 
     private var ready = 0
     private var errorCode = 0
+
+    private var pos = 0
+    private var isRun = 0;
 
     private val gSerialPort = SerialPort(this)
     var dataProcess: DataProcess? = null
@@ -113,17 +123,83 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
             val data = byteArrayOf((0 + 5).toByte(), 0x01.toByte(), 0x04.toByte())
             SerialPort.Send(data)
         }
+        btn_standby.setOnClickListener {
+            val data = byteArrayOf((1 + 5).toByte(), 0x01.toByte(), 0x02.toByte(), 0x01.toByte())
+            SerialPort.Send(data)
+        }
         btn_ready.setOnClickListener {
-            if (ready == 1) {
-                val data = byteArrayOf((1 + 5).toByte(), 0x01.toByte(), 0x02.toByte(), 0x01.toByte())
-                SerialPort.Send(data)
+            val data = byteArrayOf((1 + 5).toByte(), 0x01.toByte(), 0x02.toByte(), 0x02.toByte())
+            SerialPort.Send(data)
+        }
+        btn_power_add.setOnClickListener {
+            if (power < 15) {
+                power++
             } else {
-                val data = byteArrayOf((1 + 5).toByte(), 0x01.toByte(), 0x02.toByte(), 0x02.toByte())
-                SerialPort.Send(data)
+                power = 1
             }
+            txt_power.text = String.format("%.01fJ", power.toFloat() / 10.0)
+        }
+        btn_power_dec.setOnClickListener {
+            if (power > 1) {
+                power--
+            } else {
+                power = 15
+            }
+            txt_power.text = String.format("%.01fJ", power.toFloat() / 10.0)
+        }
+        btn_pitch_add.setOnClickListener {
+            if (pitch < 20) {
+                pitch++
+            } else {
+                pitch = 10
+            }
+            txt_pitch.text = String.format("%.01fmm", pitch.toFloat() / 10.0)
+        }
+        btn_pitch_dec.setOnClickListener {
+            if (pitch > 10) {
+                pitch--
+            } else {
+                pitch = 20
+            }
+            //txt_pitch.text = (pitch.toFloat() / 10.0).toString() + "mm"
+            txt_pitch.text = String.format("%.01fmm", pitch.toFloat() / 10.0)
+        }
+        btn_lenght_add.setOnClickListener {
+            if (length < 25) {
+                length += 5
+            } else {
+                length = 5
+            }
+            txt_lenght.text = String.format("%dmm", length)
+        }
+        btn_lenght_dec.setOnClickListener {
+            if (length > 5) {
+                length -= 5
+            } else {
+                length = 25
+            }
+            txt_lenght.text = String.format("%dmm", length)
+        }
+        btn_set.setOnClickListener {
+            if (rbn_sigle.isChecked) {
+                fireMode = 1
+            } else if (rbn_con.isChecked) {
+                fireMode = 2
+            }
+            val data = byteArrayOf((4 + 5).toByte(), 0x01.toByte(), 0x03.toByte(), power.toByte(), fireMode.toByte(), pitch.toByte(), length.toByte())
+            SerialPort.Send(data)
         }
         txt_left_handle_type.text = leftHandleType.toString() + "+" + leftHandleTipType.toString()
         txt_right_handle_type.text = rightHandleType.toString() + "+" + rightHandleTipType.toString()
+
+        txt_left_freq.text = String.format("%.01fMHz", leftHandleTipFreq.toDouble() / 1000000)
+        txt_right_freq.text = String.format("%.01fMHz", rightHandleTipFreq.toDouble() / 1000000)
+
+        txt_error_code.text = String.format("ErrorCode:%d", errorCode)
+
+        txt_power.text = String.format("%.01fJ", power.toFloat() / 10.0)
+        txt_pitch.text = String.format("%.01fmm", pitch.toFloat() / 10.0)
+        txt_lenght.text = String.format("%dmm", length)
     }
 
     /**
@@ -142,12 +218,10 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
 
                 }
                 CmdMsg.H0102_SetStateInfo.ordinal -> {
-                    if (ready == 0) {
-                        btn_ready.text = "待机"
-                    } else {
-                        btn_ready.text = "就绪"
-                    }
-                    txt_error_code.text = "ErrorCode:" + errorCode.toString()
+                    txt_error_code.text = String.format("ErrorCode:%d", errorCode)
+                }
+                CmdMsg.H0103_SetWork.ordinal -> {
+                    txt_error_code.text = String.format("ErrorCode:%02X", errorCode)
                 }
                 CmdMsg.H0301_H0302_ReflashHandleInfo.ordinal -> {
                     txt_left_handle_type.text = leftHandleType.toString() + "+" + leftHandleTipType.toString()
@@ -176,6 +250,15 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
                 CmdMsg.H0202_TipInfoReport.ordinal -> {
                     txt_left_handle_type.text = leftHandleType.toString() + "+" + leftHandleTipType.toString()
                     txt_right_handle_type.text = rightHandleType.toString() + "+" + rightHandleTipType.toString()
+                    txt_left_freq.text = String.format("%.01fMHz", leftHandleTipFreq.toDouble() / 1000000)
+                    txt_right_freq.text = String.format("%.01fMHz", rightHandleTipFreq.toDouble() / 1000000)
+
+                }
+                CmdMsg.H0206_WorkStateReport.ordinal -> {
+                    if (isRun == 1)
+                        progress.progress = pos
+                    else
+                        progress.progress = 0
                 }
             }
         }
@@ -205,19 +288,23 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
             }
             0x0102 -> {
                 message.what = CmdMsg.H0102_SetStateInfo.ordinal
-                    when (data[4].toInt()) {
-                        0 -> {
-                            errorCode=0
-                            if (ready == 0) {
-                                ready = 1
-                            } else {
-                                ready = 0
-                            }
-                        }
-                        else -> {
-                            errorCode = data[4].toInt()
+                when (data[4].toInt()) {
+                    0 -> {
+                        errorCode = 0
+                        if (ready == 0) {
+                            ready = 1
+                        } else {
+                            ready = 0
                         }
                     }
+                    else -> {
+                        errorCode = data[4].toInt() and 0xff
+                    }
+                }
+            }
+            0x0103 -> {
+                message.what = CmdMsg.H0103_SetWork.ordinal
+                errorCode = data[4].toInt() and 0xff
             }
             0x0104 -> {
                 message.what = CmdMsg.H0104_HeartBeat.ordinal
@@ -228,11 +315,18 @@ class MainActivity : AppCompatActivity(), DataListener, View.OnClickListener {
                 when (data[4].toInt()) {
                     1 -> {
                         leftHandleTipType = data[5].toInt()
+                        leftHandleTipFreq = (data[19].toInt() and 0xff) or ((data[20].toInt() and 0xff) shl 8) or ((data[21].toInt() and 0xff) shl 16) or ((data[22].toInt() and 0xff) shl 24)
                     }
                     2 -> {
                         rightHandleTipType = data[5].toInt()
+                        rightHandleTipFreq = (data[19].toInt() and 0xff) or ((data[20].toInt() and 0xff) shl 8) or ((data[21].toInt() and 0xff) shl 16) or ((data[22].toInt() and 0xff) shl 24)
                     }
                 }
+            }
+            0x0206 -> {
+                message.what = CmdMsg.H0206_WorkStateReport.ordinal
+                isRun = data[4].toInt()
+                pos = data[5].toInt() and 0xff
             }
             0x0301, 0x0302 -> {
                 message.what = CmdMsg.H0301_H0302_ReflashHandleInfo.ordinal
